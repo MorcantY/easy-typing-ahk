@@ -17,44 +17,63 @@
 
 ### 直接[AutoHotkey v2](https://www.autohotkey.com/)执行
 
-## 执行流程图
-```mermaid
-flowchart TD
-    A[用户按下标点键] --> B{触发 ~Key 热键}
-    B --> C[HandleKey 被调用]
-    C --> D[获取并缓存当前窗口 hwnd]
-    D --> E{IsIMECnMode 判定<br />是否为中文标点模式?}
-    
-    E -- 否 --> F[直接退出<br />依赖输入法默认行为]
-    E -- 是 --> G{双击条件判定?<br />1. PriorHotkey == ThisHotkey<br />2. 时间差 < 500ms<br />3. LastHotkey == ThisHotkey}
-    
-    G -- 否 首次单击 --> H[记录 LastHotkey = ThisHotkey<br />退出等待下一次按键]
-    G -- 是 连续双击 --> I[防御检查: SymbolMap 是否存在该字符?]
-    
-    I -- 不存在 --> J[弹窗报错并重置状态]
-    I -- 存在 --> K[等待 Shift 键释放 避免冲突]
-    K --> L[保存当前 IME ConvMode]
-    L --> M[发送 BackSpace 2<br />删除刚刚输入的两个中文标点]
-    M --> N[调用 SafeSendText 发送英文标点]
-    
-    subgraph SafeSendText [SafeSendText 执行细节]
-        direction TB
-        N1[备份原有剪贴板 ClipboardAll] --> N2[清空并写入英文标点]
-        N2 --> N3{ClipWait 0.5s 超时?}
-        N3 -- 否 --> N4[Send ^v 粘贴]
-        N3 -- 是 --> N5[降级: 使用 SendText 发送]
-        N4 --> N6[恢复原有剪贴板]
-        N5 --> N6
-    end
-    
-    N --> SafeSendText
-    SafeSendText --> O[RestoreIMEMode 恢复输入法状态]
-    O --> P[清空 LastHotkey 状态]
-    P --> Q[流程结束]
+---
 
-    %% 并行的 InputHook 监控
-    R[InputHook 后台持续运行] --> S{按下的键在 PunctVKMap 中?}
-    S -- 否 --> T[ResetIfNotPunct 被触发]
-    T --> U[清空 LastHotkey<br />打断双击连击链]
-    S -- 是 --> V[不干预 等待热键处理]
+## 流程关系图示
+### 执行流程图
+```mermaid
+graph TD
+    A([用户按下标点键]) --> B{当前是中文输入法?}
+    B -- 否 --> C([正常输入, 不处理])
+    B -- 是 --> D{满足连击条件?}
+    
+    D -- "否 (第一次按/按太慢)" --> E[记录当前按键为 LastHotkey]
+    E --> F([结束本次检测])
+    
+    D -- "是 (500ms内重复按)" --> G[等待 Shift 键松开]
+    G --> H[保存当前 IME 状态]
+    H --> I[发送两次 Backspace 擦除中文标点]
+    I --> J[通过剪贴板发送英文标点]
+    J --> K[恢复 IME 状态]
+    K --> L[清空 LastHotkey 记录]
+    L --> F
+    
+    subgraph "连击条件判定"
+    D1[1. 当前热键 == 上次记录热键]
+    D2[2. 两次按键间隔 < 500ms]
+    D3[3. 中途未被其他字母/空格打断]
+    end
+```
+
+### 类关系图
+```mermaid
+classDiagram
+    class CnEnPunctSwitcher {
+        +Config : Array~Object~
+        +SymbolMap : Map
+        +LastHotkey : String
+        +PunctVKMap : Map
+        +IH : InputHook
+        
+        <<Entry Point>>
+        +Start()
+        +Cleanup()
+        
+        <<Initialization>>
+        -InitializeMaps()
+        -SetupInputHook()
+        -RegisterHotkeys()
+        
+        <<Core Logic>>
+        -HandleKey(char)
+        -SafeSendText(str)
+        
+        <<Windows API Helpers>>
+        -IsIMECnMode(hwnd)
+        -GetFocusedHwnd()
+        -GetIMEConvMode(hwnd)
+        -SendIMEMessage(wParam, lParam, hwnd)
+    }
+
+    note for CnEnPunctSwitcher "Static Class: 所有成员均为静态，无需实例化即可运行"
 ```
