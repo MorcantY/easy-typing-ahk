@@ -1,21 +1,22 @@
-# easy-typing
+# easy-typing-ahk
 [easy-typing-obsidian](https://github.com/Yaozhuwa/easy-typing-obsidian)部分功能的AutoHotkey实现，在所有输入框中享受无缝的中英文标点切换。
 > 几乎完全由AI编写，真正意义上的vibe coding史山。
 
 ## 功能说明：
-在搜狗输入法中文模式下，【连续按两次】标点键，自动将其替换为英文标点。
+在搜狗/微软输入法中文模式下，【连续按两次】标点键，自动将其替换为英文标点。
 例如：按两次「，」变成「,」，按两次「。」变成「.」。
+> 其他输入法未测试，若替换失效可修改检测输入法状态的参数后再次尝试运行。
 
-支持自定义符号转换。
+支持在代码中添加自定义符号实现转换。
 
 ## 使用方法
-### 将`SymbolFunc.ahk`文件导入已有的AutoHotkey应用。
+### 1. 将`SymbolFunc.ahk`文件导入已有的AutoHotkey应用。
 以导入[MyKeymap](https://github.com/xianyukang/MyKeymap)为例：
 1. 将文件`SymbolFunc.ahk`放入MyKeymap\data\
 2. 修改原有文件`custom_functions.ahk`（参考原有文件内的注释）
    > 添加`#Include ../data/SymbolFunc.ahk`至第一行
 
-### 直接[AutoHotkey v2](https://www.autohotkey.com/)执行
+### 2. 直接使用[AutoHotkey v2](https://www.autohotkey.com/)执行
 
 ---
 
@@ -33,7 +34,7 @@ graph TD
     D -- "是 (500ms内重复按)" --> G[等待 Shift 键松开]
     G --> H[保存当前 IME 状态]
     H --> I[发送两次 Backspace 擦除中文标点]
-    I --> J[通过剪贴板发送英文标点]
+    I --> J[通过剪贴板发送英文标点<br />（防止被输入法吞字或误触发shift键）]
     J --> K[恢复 IME 状态]
     K --> L[清空 LastHotkey 记录]
     L --> F
